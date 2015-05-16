@@ -11,16 +11,18 @@ elif [ ! -d '.git' ]; then
 else
 	# Describe version from Git, and ensure the only "-xxx" is the git revision
 	# This ensures that gem builds only add one ".pre" tag automatically
-	VERSION="$(git describe | sed 's/-\([0-9][0-9]*\)-\([0-9a-z][0-9a-z]*\)$/.\1.\2/g')"
+	VERSION="$(git describe 2>/dev/null | sed 's/-\([0-9][0-9]*\)-\([0-9a-z][0-9a-z]*\)$/.\1.\2/g')"
+	VERSION_SHORT=$(git describe --abbrev=0 2>/dev/null)
+	if [ "$?" -ne 0 ]; then
+		VERSION=v0.0.0.0
+		VERSION_SHORT=v0.0
+	fi
 	VERSION="${VERSION#v}"
-	VERSION_SHORT=$(git describe --abbrev=0)
 	VERSION_SHORT="${VERSION_SHORT#v}"
 fi
 
 # Patch the gemspec
-for GEM in iomultiplex; do
-	sed "s/<VERSION>/${VERSION}/g" ${GEM}.gemspec.tmpl > ${GEM}.gemspec
-done
+sed "s/<VERSION>/${VERSION}/g" iomultiplex.gemspec.tmpl > iomultiplex.gemspec
 
 # Store the full version in version.txt for other scripts to use, such as push_gems
 echo "${VERSION}" > version.txt
