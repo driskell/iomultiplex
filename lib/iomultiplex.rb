@@ -597,13 +597,13 @@ module IOMultiplex
           @logger.warn 'Slow NIO select', :duration_ms => duration, :now => now.to_i, :timer_due => timer_due, :timer_delay => timer_delay, :connections => @connections
         end
 
+        # Cannot use delete_if as we must remain compatible with JRuby 1.7.11
+        # which corrupts an array if you break from a delete_if or reject!
         if @timers.length != 0
-          # Cannot use delete_if as we must remain compatible with JRuby 1.7.11
-          # which corrupts an array if you break from a delete_if or reject!
-          @timers.each do |timer|
-            break if timer.time > Time.now
-            # Shift this away, timer.timer might add it back
-            @timers.shift
+          now = Time.now
+          while @timers.length != 0
+            break if @timers[0].time > now
+            timer = @timers.shift
             timer.timer if timer.respond_to?(:timer)
           end
         end
