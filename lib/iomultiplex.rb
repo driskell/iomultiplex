@@ -184,6 +184,7 @@ module IOMultiplex
       end
       true
     rescue IO::WaitWritable
+      # TODO: handle_data should really be triggered
       # This captures an OpenSSL read wanting a write
       @multiplexer.stop_read self
       @multiplexer.wait_write self
