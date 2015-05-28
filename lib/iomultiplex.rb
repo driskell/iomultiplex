@@ -673,7 +673,7 @@ module IOMultiplex
       lookup = @lookup[client]
       return unless lookup
 
-      unless lookup & LOOKUP_NOT_CONNECTION == 0
+      if lookup & LOOKUP_NOT_CONNECTION == 0
         @mutex.synchronize do
           @connections -= 1
         end
