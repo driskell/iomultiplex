@@ -266,7 +266,7 @@ module IOMultiplex
       fail IOError, 'Socket is closed' if @io.closed?
       fail NotEnoughData, 'Not enough data', nil if @read_buffer.length < n
 
-      return @read_buffer.read(n)
+      @read_buffer.read(n)
     end
 
     def discard
@@ -277,6 +277,7 @@ module IOMultiplex
     def pause
       @logger.debug 'pause read'
       @pause = true
+      return
     end
 
     def resume
