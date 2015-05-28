@@ -545,7 +545,7 @@ module IOMultiplex
         elsif @timers.length == 0
           next_timer = nil
         else
-          next_timer = @timers[0].time - Time.now
+          next_timer = (@timers[0].time - Time.now).ceil
           next_timer = 0 if next_timer < 0
         end
 
@@ -588,9 +588,9 @@ module IOMultiplex
             timer_due = 'None'
             timer_delay = 'N/A'
           else
-            timer_due = @timers[0].time.to_i
+            timer_due = @timers[0].time.to_f.ceil
             if now > @timers[0].time
-              timer_delay = (now - @timers[0].time).to_i
+              timer_delay = ((now - @timers[0].time) * 1000).to_i
             else
               timer_delay = 'None'
             end
