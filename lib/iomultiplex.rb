@@ -148,6 +148,8 @@ module IOMultiplex
     end
 
     def handle_read
+      force = false
+
       begin
         read_action
       rescue IO::WaitReadable, Errno::EINTR, Errno::EAGAIN
@@ -163,13 +165,15 @@ module IOMultiplex
         force_close
         return
       else
-        if force_read?
-          @multiplexer.stop_read self
-          @multiplexer.force_read self
-        end
+        force = force_read?
       end
 
       handle_data if @read_buffer.length != 0
+
+      if force and not @pause
+        @multiplexer.stop_read self
+        @multiplexer.force_read self
+      end
 
       # If we were wanting a write, we no longer need it now
       if @read_on_write
@@ -278,7 +282,11 @@ module IOMultiplex
       @logger.debug 'resume read'
       @pause = false
       @multiplexer.defer self if @read_buffer.length != 0
-      @multiplexer.wait_read self if @read_buffer.length < 4096
+      if force_read?
+        @multiplexer.force_read self
+      elsif @read_buffer.length < 4096
+        @multiplexer.wait_read self
+      end
       return
     end
 
