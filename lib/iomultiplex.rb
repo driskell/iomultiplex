@@ -153,6 +153,7 @@ module IOMultiplex
       rescue IO::WaitReadable, Errno::EINTR, Errno::EAGAIN
         @multiplexer.wait_read self if force_read?
       rescue EOFError
+        # TODO: This means EOF is called BEFORE we've read all data...
         @logger.debug 'EOF'
         eof if respond_to?(:eof)
         @multiplexer.stop_read self
