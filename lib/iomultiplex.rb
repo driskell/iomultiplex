@@ -767,6 +767,10 @@ module IOMultiplex
       return
     end
 
+    def status(client)
+      return @lookup[client]
+    end
+
     def defer(client)
       post_process client, LOOKUP_DEFER
     end
