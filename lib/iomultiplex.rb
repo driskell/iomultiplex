@@ -163,7 +163,7 @@ module IOMultiplex
       rescue IOError, Errno::ECONNRESET, OpenSSL::SSL::SSLError => e
         exception e if respond_to?(:exception)
         force_close
-        return
+        return false
       else
         force = force_read?
       end
@@ -182,13 +182,13 @@ module IOMultiplex
           @multiplexer.wait_read self
         end
       end
-      return
+      true
     rescue IO::WaitWritable
       # This captures an OpenSSL read wanting a write
       @multiplexer.stop_read self
       @multiplexer.wait_write self
       @read_on_write = true
-      return
+      false
     end
 
     def handle_data
@@ -572,9 +572,12 @@ module IOMultiplex
           next unless @lookup.key?(monitor.value)
           if monitor.readable?
             sub_start_time = Time.now
-            monitor.value.handle_read
+            check_write = monitor.value.handle_read
             duration = ((Time.now - sub_start_time) * 1000).to_i
             @logger.warn 'Slow handle_write', :duration_ms => duration, :client => monitor.value.id if duration > 100
+
+            # Skip if handle_read returned false
+            next unless check_write
           end
 
           # Check we didn't remove the socket before we call monitor.writable?
