@@ -188,6 +188,7 @@ module IOMultiplex
       @multiplexer.stop_read self
       @multiplexer.wait_write self
       @read_on_write = true
+      @write_immediately = false
       false
     end
 
