@@ -220,18 +220,17 @@ module IOMultiplex
     end
 
     def handle_write
-      if @write_buffer.length == 0
-        @multiplexer.stop_write self
-        @write_immediately = true
-        return
-      end
-
       if @read_on_write
         handle_read
-        unless @write_buffer.length != 0
+        return if @read_on_write
+        if @write_buffer.length == 0
           @multiplexer.wait_write self
           return
         end
+      elsif @write_buffer.length == 0
+        @multiplexer.stop_write self
+        @write_immediately = true
+        return
       end
 
       begin
