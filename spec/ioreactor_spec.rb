@@ -14,19 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Patch to copy Cabin channels, maintaining existing subscriptions,
-# level, and data. Allows the new channel to have additional data attached that
-# will not impact the copied channel.
-class Cabin::Channel
-  def copy
-    logger = Cabin::Channel.new
-    logger.level = @level
-    @data.each_key do |k|
-      logger[k] = @data[k]
-    end
-    @subscribers.each_key do |k|
-      logger.subscribe @subscribers[k]
-    end
-    return logger
+require 'iomultiplex/ioreactor'
+
+RSpec.describe IOMultiplex::IOReactor do
+  it 'works' do
+    true
   end
 end

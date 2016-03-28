@@ -1,0 +1,8 @@
+Style/HashSyntax:
+  EnforcedStyle: ''
+Metrics/AbcSize:
+  Enabled: false
+Metrics/ClassLength:
+  Enabled: false
+Metrics/MethodLength:
+  Enabled: false
