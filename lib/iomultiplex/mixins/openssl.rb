@@ -28,8 +28,7 @@ module IOMultiplex
         @multiplexer.wait_write self
         @read_on_write = true
 
-        # Don't allow a write to run until we've finished our read
-        @write_immediately = false
+        log_debug 'OpenSSL wants read on write'
       end
 
       def handle_write
@@ -56,6 +55,8 @@ module IOMultiplex
         @multiplexer.stop_write self
         @multiplexer.wait_read self
         @write_on_read = true
+
+        log_debug 'OpenSSL wants write on read'
       end
 
       def peer_cert

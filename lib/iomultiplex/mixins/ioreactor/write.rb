@@ -80,6 +80,7 @@ module IOMultiplex
           elsif was_read_held && !write_full?
             log_debug 'write buffer no longer full, resuming read',
                       count: @write_buffer.length
+            @multiplexer.wait_read self
             reschedule_read
           end
         end

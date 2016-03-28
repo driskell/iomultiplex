@@ -2,6 +2,8 @@ Style/HashSyntax:
   Enabled: false
 Metrics/AbcSize:
   Enabled: false
+Metrics/ModuleLength:
+  Enabled: false
 Metrics/ClassLength:
   Enabled: false
 Metrics/MethodLength:

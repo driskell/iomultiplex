@@ -30,10 +30,25 @@ module IOMultiplex
 
       protected
 
+      def do_read
+        read_action
+      rescue IO::WaitReadable, Errno::EINTR, Errno::EAGAIN
+        @wait_readable = true
+      else
+        @wait_readable = false
+      end
+
       def schedule_read
-        # Last read was successful without a wait readable throw, but keep
-        # reading anyway in case of buffered data
-        @multiplexer.force_read self unless @wait_readable
+        @multiplexer.defer self unless @read_buffer.empty?
+
+        # Keep forcing reads until we hit a WaitReadable, in case there is
+        # buffered data in the IO
+        if @wait_readable
+          @multiplexer.wait_read self
+        else
+          @multiplexer.stop_read self
+          @multiplexer.force_read self
+        end
       end
     end # ::Buffered
   end # ::IOReactor

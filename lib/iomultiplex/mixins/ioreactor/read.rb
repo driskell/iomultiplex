@@ -33,14 +33,18 @@ module IOMultiplex
         end
 
         def handle_data
+          @was_read_full = read_full?
           process unless @read_buffer.empty?
-          send_eof if @eof_scheduled && @read_buffer.empty?
           nil
         rescue NotEnoughData
-          # Allow overfilling of the read buffer in the even read(>=4096) was
+          return send_eof if @eof_scheduled
+
+          # Allow overfilling of the read buffer in the event read(>=4096) was
           # called
           reschedule_read true
         else
+          return send_eof if @eof_scheduled && @read_buffer.empty?
+
           reschedule_read
         end
 
@@ -84,9 +88,7 @@ module IOMultiplex
         def do_read
           read_action
         rescue IO::WaitReadable, Errno::EINTR, Errno::EAGAIN
-          @wait_readable = true
-        else
-          @wait_readable = false
+          return
         end
 
         def send_eof
@@ -121,26 +123,31 @@ module IOMultiplex
 
           if read_full? && !overfill
             # Stop reading, the buffer is too full, let the processor catch up
+            log_info 'Holding read due to full read buffer'
             @multiplexer.stop_read self
             @multiplexer.defer self
+            return
+          end
+
+          # Only schedule read if write isn't full - this allows us to drain
+          # write buffer before reading again and prevents a client from sending
+          # large amounts of data without receiving responses
+          if @w && write_full?
+            log_info 'Holding read due to full write buffer'
+            @multiplexer.stop_read self
             return
           end
 
           schedule_read
         end
 
-        # Schedules the next read actions, can be overrided if necessary such as
-        # by buffered IOReactor to force a read until WaitReadable
+        # Schedules the next read action, can be overrided if necessary to
+        # change how the next read should be scheduled
         def schedule_read
-          # Only schedule read if write isn't full - this allows us to drain
-          # write buffer before reading again and prevents a client from sending
-          # large amounts of data without receiving responses
-          return if @w && write_full?
-
           @multiplexer.defer self unless @read_buffer.empty?
 
-          # Ensure we're waiting on read in case this was a deferred call
-          @multiplexer.wait_read self if @wait_readable
+          # Resume read signal if we had paused due to full buffer
+          @multiplexer.wait_read self if @was_read_full
         end
 
         # Can be overridden for other IO objects

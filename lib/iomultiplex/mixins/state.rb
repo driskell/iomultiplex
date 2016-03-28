@@ -8,9 +8,6 @@ module IOMultiplex
       STATE_WAIT_READ = 1
       STATE_WAIT_WRITE = 2
       STATE_TIMER = 4
-      # 8 - free
-      STATE_DEFER = 16
-      STATE_FORCE_READ = 32
 
       def initialize_state
         @lookup = Hash.new do |h, k|
