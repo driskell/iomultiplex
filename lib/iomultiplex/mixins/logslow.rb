@@ -10,13 +10,14 @@ module IOMultiplex
         func.call(*args)
         duration = ((Time.now - sub_start_time) * 1000).to_i
         return unless duration > max_duration
-        extra = {}
+        extra = {
+          :duration_ms => duration,
+          :client => monitor.value.id
+        }
         extra = diagnostics.call unless diagnostics.nil?
         log_warn \
           'Slow ' + func.to_s,
-          :duration_ms => duration,
-          :client => monitor.value.id,
-          **extra
+          extra
       end
     end # ::LogSlow
   end # ::Mixins

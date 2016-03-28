@@ -100,6 +100,18 @@ RSpec.describe IOMultiplex::StringBuffer do
     expect(@buffer.length).to eq 10
   end
 
+  it 'returns the correct value for empty?' do
+    expect(@buffer.empty?).to eq true
+
+    @buffer.push 'HelloWorld'
+    expect(@buffer.empty?).to eq false
+
+    @buffer.read(3)
+    expect(@buffer.empty?).to eq false
+    @buffer.read(7)
+    expect(@buffer.empty?).to eq true
+  end
+
   it 'allows data to be cleared using shift' do
     @buffer.push 'Hello'
     @buffer << 'World'

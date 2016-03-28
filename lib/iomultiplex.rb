@@ -15,10 +15,10 @@
 # limitations under the License.
 
 require 'cabin'
-require 'iomultiplex/cabin-copy'
 require 'iomultiplex/ioreactor'
 require 'iomultiplex/mixins/callback'
 require 'iomultiplex/mixins/logslow'
+require 'iomultiplex/mixins/post'
 require 'iomultiplex/mixins/select'
 require 'iomultiplex/mixins/state'
 require 'iomultiplex/mixins/timer'
@@ -31,13 +31,21 @@ module IOMultiplex
     include Mixins::Logger
     include Mixins::State
     include Mixins::Select
-    include Mixins::Callback
+    include Mixins::Post
     include Mixins::Timer
+    include Mixins::Callback
 
     def initialize(options = {})
+      @mutex = Mutex.new
+      @connections = 0
+
+      initialize_logger options[:logger], options[:logger_context]
+
       initialize_state
       initialize_select options
-      initialize_logger options[:logger], options[:logger_context]
+      initialize_post
+      initialize_timers
+      initialize_callbacks
 
       @id = options[:id] || object_id
       add_logger_context 'multiplexer', @id
@@ -55,15 +63,15 @@ module IOMultiplex
     end
 
     def add(client)
-      fail ArgumentError,
-           'Client must be an instance of IOMultiplex::IOReactor' \
-           unless client.is_a? IOReactor
-      fail ArgumentError,
-           'Client is already attached' \
-           unless get_state(client).nil?
+      raise ArgumentError,
+            'Client must be an instance of IOMultiplex::IOReactor' \
+            unless client.is_a? IOReactor
+      raise ArgumentError,
+            'Client is already attached' \
+            unless get_state(client).nil?
 
-      client.attach self
       register_state client
+      client.attach self
 
       @mutex.synchronize do
         @connections += 1
@@ -82,9 +90,7 @@ module IOMultiplex
       stop_all client
       remove_post client
       remove_timer client
-
-      # If not timer-only, deregister (timers are deregistered by remove_timer)
-      deregister_state client if state ^ LOOKUP_TIMER != 0
+      deregister_state client
       nil
     end
 
@@ -106,21 +112,24 @@ module IOMultiplex
       # If post processing is scheduled, do not block on select
       # Otherwise, only block until next timer
       # And if no timers, bock indefinitely
-      next_timer = nil
+      timeout = nil
       if schedule_post_processing
-        next_timer = 0
-      elsif @timers.length != 0
-        next_timer = (@timers[0].time - Time.now).ceil
-        next_timer = 0 if next_timer < 0
+        timeout = 0
+      else
+        timeout = next_timer
+        unless timeout.nil?
+          timeout = (timeout - Time.now).ceil
+          timeout = 0 if timeout < 0
+        end
       end
 
-      select_io next_timer
+      select_io timeout
+
+      trigger_post_processing
 
       # Trigger callbacks and timers
       trigger_callbacks
       trigger_timers
-
-      trigger_post_processing
     end
   end
 end

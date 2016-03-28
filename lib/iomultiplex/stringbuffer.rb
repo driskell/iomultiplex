@@ -38,14 +38,14 @@ module IOMultiplex
       @buffer.push data
       @length += data.length
     end
-    alias_method << push
+    alias << push
 
     def read(n)
       process n, false
     end
 
     def peek(n)
-      return '' if length == 0
+      return '' if length == 0 # rubocop:disable Style/ZeroLengthPredicate
       s = ''
       # Coalesce small writes
       i = 0
@@ -66,17 +66,17 @@ module IOMultiplex
       process n, true
     end
 
+    def empty?
+      length == 0 # rubocop:disable Style/ZeroLengthPredicate
+    end
+
     private
 
     def process(n, discard = false)
       data = ''
       n = n.to_i
-      while n > 0 && length > 0
-        if @buffer[0].length > n
-          s = @buffer[0].slice!(0, n)
-        else
-          s = @buffer.shift
-        end
+      while n > 0 && length > 0 # rubocop:disable Style/ZeroLengthPredicate
+        s = @buffer[0].length > n ? @buffer[0].slice!(0, n) : @buffer.shift
         n -= s.length
         @length -= s.length
         data << s unless discard

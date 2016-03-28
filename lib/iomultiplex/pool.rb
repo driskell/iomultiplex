@@ -9,11 +9,11 @@ module IOMultiplex
 
     def initialize(options)
       %w(parent num_workers).each do |k|
-        fail ArgumentError, "Required option missing: #{k}" \
+        raise ArgumentError, "Required option missing: #{k}" \
           unless options[k.to_sym]
       end
 
-      initialize_logger options[:logger]
+      initialize_logger options[:logger], options[:logger_context]
 
       @id = options[:id] || object_id
       add_logger_context 'multiplexer_pool', @id

@@ -22,7 +22,7 @@ module IOMultiplex
       # isn't registered
       def must_get_state(client)
         lookup = get_state client
-        fail ArgumentError, 'Client is not registered' if lookup.nil?
+        raise ArgumentError, 'Client is not registered' if lookup.nil?
         lookup
       end
 
@@ -46,13 +46,13 @@ module IOMultiplex
 
       # Register a client
       def register_state(client)
-        fail ArgumentError, 'Client is already registered' if _get_state client
+        raise ArgumentError, 'Client is already registered' if get_state(client)
         @lookup[client]
       end
 
       # Deregister a client
       def deregister_state(client)
-        @lookup.remove client
+        @lookup.delete client
       end
 
       # Loop registered clients (non-timer clients)

@@ -20,7 +20,7 @@ module IOMultiplex
       # Write mixin for IOReactor
       module Write
         def handle_write
-          if @write_buffer.length == 0
+          if @write_buffer.empty?
             @multiplexer.stop_write self
             @write_immediately = true
             return
@@ -31,17 +31,16 @@ module IOMultiplex
           rescue IO::WaitWritable, Errno::EINTR, Errno::EAGAIN
             # Keep waiting for write
             return
-          rescue IOError, Errno::ECONNRESET, OpenSSL::SSL::SSLError => e
-            exception e if respond_to?(:exception)
-            force_close
+          rescue IOError, Errno::ECONNRESET => e
+            write_exception e
           end
 
           nil
         end
 
         def write(data)
-          fail 'Socket is not attached' unless @attached
-          fail IOError, 'Socket is closed' if @io.closed?
+          raise 'Socket is not attached' unless @attached
+          raise IOError, 'Socket is closed' if @io.closed?
 
           @write_buffer.push data
           @multiplexer.wait_write self
@@ -52,7 +51,7 @@ module IOMultiplex
           end
 
           # Write buffer too large - pause read polling
-          if write_full?
+          if @r && write_full?
             log_debug 'write buffer full, pausing read',
                       count: @write_buffer.length
             @multiplexer.stop_read self
@@ -68,13 +67,17 @@ module IOMultiplex
 
         protected
 
+        def reading?
+          @r && !@pause
+        end
+
         def do_write
-          was_write_full = write_full?
+          was_read_held = reading? && write_full?
           @write_buffer.shift write_action
 
-          if @write_buffer.length == 0
+          if @write_buffer.empty?
             force_close if @close_scheduled
-          elsif was_write_full && !write_full? && !@pause
+          elsif was_read_held && !write_full?
             log_debug 'write buffer no longer full, resuming read',
                       count: @write_buffer.length
             reschedule_read
@@ -90,6 +93,11 @@ module IOMultiplex
         # Can be overriden for other IO objects
         def write_action
           write_nonblock @write_buffer.peek(4096)
+        end
+
+        def write_exception(e)
+          exception e if respond_to?(:exception)
+          force_close
         end
       end # ::Write
     end # ::IOReactor

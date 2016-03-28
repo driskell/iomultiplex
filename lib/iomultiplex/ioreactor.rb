@@ -25,6 +25,7 @@ module IOMultiplex
     attr_reader :mode
     attr_reader :peer
 
+    include Mixins::Logger
     include Mixins::IOReactor::Read
     include Mixins::IOReactor::Write
 
@@ -36,12 +37,14 @@ module IOMultiplex
       @eof_scheduled = false
       @exception = nil
 
-      @mode = mode
-      unless mode.index('r').nil?
+      @r = mode.index('r').nil? ? false : true
+      @w = mode.index('w').nil? ? false : true
+
+      if @r
         @read_buffer = StringBuffer.new
         @pause = false
       end
-      unless mode.index('w').nil?
+      if @w
         @write_buffer = StringBuffer.new
         @write_immediately = false
       end
@@ -59,29 +62,28 @@ module IOMultiplex
     end
 
     def attach(multiplexer)
-      fail ArgumentError, 'Socket is already attached' if @attached
+      raise ArgumentError, 'Socket is already attached' if @attached
 
       @multiplexer = multiplexer
       initialize_logger multiplexer.logger, multiplexer.logger_context.dup
       add_logger_context 'client', @id
 
-      @multiplexer.wait_read self unless @mode.index('r').nil?
-      @multiplexer.wait_write self \
-        if can_write_immediately? && !@mode.index('r').nil?
+      @multiplexer.wait_read self if @r
+      @multiplexer.wait_write self if @w
 
       @attached = true
       nil
     end
 
     def detach
-      fail ArgumentError, 'Socket is not yet attached' unless @attached
+      raise ArgumentError, 'Socket is not yet attached' unless @attached
       @attached = false
       nil
     end
 
     def close
       @read_buffer.reset
-      if !@mode.index('w').nil?
+      if !@w
         @close_scheduled = true
       else
         force_close
@@ -95,13 +97,16 @@ module IOMultiplex
       nil
     end
 
-    private
+    protected
 
-    def _calculate_id
+    def calculate_id
       if @io.respond_to?(:peeraddr)
         begin
           peer = @io.peeraddr(:numeric)
-          return "#{peer[2]}:#{peer[1]}"
+          # IPv4 format
+          return "#{peer[2]}:#{peer[1]}" if peer[2].index(':').nil?
+          # IPv6 format
+          return "[#{peer[2]}]:#{peer[1]}"
         rescue NotImplementedError, Errno::ENOTCONN
           return @io.inspect
         end
@@ -109,5 +114,5 @@ module IOMultiplex
 
       @io.inspect
     end
-  end
-end
+  end # ::IOReactor
+end # ::IOMultiplex

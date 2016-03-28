@@ -1,3 +1,5 @@
+require 'openssl'
+
 module IOMultiplex
   module Mixins
     # OpenSSL mixin, shared code amongst the OpenSSL IOReactors
@@ -10,14 +12,15 @@ module IOMultiplex
           return if @write_on_read
         end
 
-        super
+        begin
+          super
+        rescue ::OpenSSL::SSL::SSLError => e
+          read_exception e
+        end
 
         # If we were waiting for a write signal so we could complete a read
         # call, clear it since we now completed it
-        if @read_on_write
-          @read_on_write = false
-          @multiplexer.wait_read self unless write_full?
-        end
+        reset_read_on_write if @read_on_write
       rescue IO::WaitWritable
         # TODO: handle_data should really be triggered
         # This captures an OpenSSL read wanting a write
@@ -39,14 +42,15 @@ module IOMultiplex
 
         # Since we didn't hit a WaitWritable we may have more room to write, so
         # allow write immediately flag to be set, or even data to be written
-        super
+        begin
+          super
+        rescue ::OpenSSL::SSL::SSLError => e
+          write_exception e
+        end
 
         # If we were waiting for a read signal so we could complete a write
         # call, clear it since we now completed it
-        if @write_on_read
-          @write_on_read = false
-          @write_immediately = true
-        end
+        reset_write_on_read if @write_on_read
       rescue IO::WaitReadable
         # Write needs a read
         @multiplexer.stop_write self
@@ -73,22 +77,42 @@ module IOMultiplex
 
       protected
 
-      def initialize_openssl(ssl_ctx)
-        @ssl = OpenSSL::SSL::SSLSocket.new(@io, ssl_ctx)
+      def initialize_ssl(ssl_ctx)
+        @ssl = ::OpenSSL::SSL::SSLSocket.new(@io, ssl_ctx)
         @ssl_ctx = ssl_ctx
         @handshake_completed = false
         @read_on_write = false
         nil
       end
 
-      def can_write_immediately?
-        false
+      def ssl_read_nonblock(n)
+        read = @ssl.read_nonblock n
+      ensure
+        log_debug 'SSL read_nonblock',
+                  count: n, read: read.nil? ? nil : read.length
+      end
+
+      def ssl_write_nonblock(data)
+        written = @ssl.write_nonblock data
+      ensure
+        log_debug 'SSL write_nonblock',
+                  count: data.length, written: written
+      end
+
+      def reset_read_on_write
+        @read_on_write = false
+        @multiplexer.wait_read self unless write_full?
+      end
+
+      def reset_write_on_read
+        @write_on_read = false
+        @write_immediately = true
       end
 
       def process_handshake
         @ssl.accept_nonblock
         @handshake_completed = true
-        add_log_context 'peer_cert_cn', peer_cert_cn
+        add_logger_context 'peer_cert_cn', peer_cert_cn
 
         handshake_completed if respond_to?(:handshake_completed)
 

@@ -9,12 +9,7 @@ module IOMultiplex
 
       def initialize_logger(logger = nil, logger_context = nil)
         @logger = logger || Cabin::Channel.get(IOMultiplex)
-
-        if !logger_context.nil?
-          @logger_context = logger_context
-        else
-          @logger_context = {}
-        end
+        @logger_context = logger_context.nil? ? {} : logger_context
       end
 
       def add_logger_context(key, value)
@@ -33,7 +28,7 @@ module IOMultiplex
           args[1] ||= {}
 
           unless args[1].is_a?(Hash)
-            fail ArgumentError 'Second argument must be a hash'
+            raise ArgumentError 'Second argument must be a hash'
           end
 
           args[1].merge! @logger_context unless @logger_context.nil?

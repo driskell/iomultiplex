@@ -1,7 +1,5 @@
-/.bundle
 /.vagrant
 /coverage
-/Gemfile.lock
 /lib/iomultiplex/version.rb
 /pkg
 /vendor

@@ -4,7 +4,7 @@ module IOMultiplex
   # A TCP listener
   class TCPListener < IOReactor
     def initialize(address, port, pool = nil, &block)
-      fail RuntimeError, 'connection_accepted not implemented', nil \
+      raise RuntimeError, 'connection_accepted not implemented', nil \
         unless block_given? || respond_to?(:connection_accepted)
       super TCPServer.new(address, port), 'r'
       @io.listen 1024
@@ -25,11 +25,7 @@ module IOMultiplex
 
     def accept_one
       socket = @io.accept_nonblock
-      if @block
-        client = @block.call(socket)
-      else
-        client = connection_accepted(socket)
-      end
+      client = @block ? @block.call(socket) : connection_accepted(socket)
       unless client
         socket.close
         return

@@ -13,9 +13,13 @@ module IOMultiplex
 
       protected
 
+      def initialize_callbacks
+        @callbacks = []
+      end
+
       def trigger_callbacks
         return if @callbacks.empty?
-        @callbacks.each(&call)
+        @callbacks.each(&:call)
         @callbacks = []
         nil
       end

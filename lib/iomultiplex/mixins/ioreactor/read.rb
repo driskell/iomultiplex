@@ -24,11 +24,8 @@ module IOMultiplex
         def handle_read
           begin
             do_read
-          rescue EOFError, IOError, Errno::ECONNRESET,
-                 OpenSSL::SSL::SSLError => e
-            @eof_scheduled = true
-            @exception = e unless e.is_a(EOFError)
-            @multiplexer.stop_read self
+          rescue EOFError, IOError, Errno::ECONNRESET => e
+            read_exception e
           end
 
           handle_data
@@ -36,8 +33,8 @@ module IOMultiplex
         end
 
         def handle_data
-          process if @read_buffer.length != 0
-          send_eof if @eof_scheduled && @read_buffer.length == 0
+          process unless @read_buffer.empty?
+          send_eof if @eof_scheduled && @read_buffer.empty?
           nil
         rescue NotEnoughData
           # Allow overfilling of the read buffer in the even read(>=4096) was
@@ -48,9 +45,9 @@ module IOMultiplex
         end
 
         def read(n)
-          fail 'Socket is not attached' unless @attached
-          fail IOError, 'Socket is closed' if @io.closed?
-          fail NotEnoughData, 'Not enough data', nil if @read_buffer.length < n
+          raise 'Socket is not attached' unless @attached
+          raise IOError, 'Socket is closed' if @io.closed?
+          raise NotEnoughData, 'Not enough data', nil if @read_buffer.length < n
 
           @read_buffer.read(n)
         end
@@ -138,9 +135,9 @@ module IOMultiplex
           # Only schedule read if write isn't full - this allows us to drain
           # write buffer before reading again and prevents a client from sending
           # large amounts of data without receiving responses
-          return if write_full?
+          return if @w && write_full?
 
-          @multiplexer.defer self if @read_buffer.length > 0
+          @multiplexer.defer self unless @read_buffer.empty?
 
           # Ensure we're waiting on read in case this was a deferred call
           @multiplexer.wait_read self if @wait_readable
@@ -156,6 +153,12 @@ module IOMultiplex
         def read_action
           @read_buffer << read_nonblock(4096)
           nil
+        end
+
+        def read_exception(e)
+          @eof_scheduled = true
+          @exception = e unless e.is_a?(EOFError)
+          @multiplexer.stop_read self
         end
       end # ::Read
     end # ::IOReactor
