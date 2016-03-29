@@ -80,7 +80,7 @@ module IOMultiplex
     end
 
     def remove(client)
-      state = must_get_state(client)
+      must_get_state(client)
 
       @mutex.synchronize do
         @connections -= 1
