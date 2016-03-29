@@ -65,6 +65,7 @@ module IOMultiplex
         # Takes effect on the next reschedule, which occurs after each read
         # processing takes place
         def pause
+          return if @pause
           log_debug 'pause read'
           @pause = true
           nil
@@ -72,6 +73,7 @@ module IOMultiplex
 
         # Resume read processing
         def resume
+          return unless @pause
           log_debug 'resume read'
           @pause = false
           reschedule_read
