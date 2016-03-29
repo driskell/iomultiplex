@@ -21,6 +21,10 @@ module IOMultiplex
     module IOReactor
       # Read mixin for IOReactor
       module Read
+        # TODO: Make these customisable?
+        READ_BUFFER_MAX = 16_384
+        READ_SIZE = 16_384
+
         def handle_read
           begin
             do_read
@@ -39,8 +43,8 @@ module IOMultiplex
         rescue NotEnoughData
           return send_eof if @eof_scheduled
 
-          # Allow overfilling of the read buffer in the event read(>=4096) was
-          # called
+          # Allow overfilling of the read buffer in the event
+          # read(>=READ_BUFFER_MAX) was called
           reschedule_read true
         else
           return send_eof if @eof_scheduled && @read_buffer.empty?
@@ -81,8 +85,7 @@ module IOMultiplex
         end
 
         def read_full?
-          # TODO: Make read buffer max customisable?
-          @read_buffer.length >= 4096
+          @read_buffer.length >= READ_BUFFER_MAX
         end
 
         protected
@@ -150,6 +153,8 @@ module IOMultiplex
 
           # Resume read signal if we had paused due to full buffer
           @multiplexer.wait_read self if @was_read_full
+
+          nil
         end
 
         # Can be overridden for other IO objects
@@ -160,7 +165,7 @@ module IOMultiplex
 
         # Can be overriden for other IO objects
         def read_action
-          @read_buffer << read_nonblock(4096)
+          @read_buffer << read_nonblock(READ_SIZE)
           nil
         end
 

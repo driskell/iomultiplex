@@ -19,22 +19,25 @@ module IOMultiplex
     module IOReactor
       # Write mixin for IOReactor
       module Write
-        def handle_write
-          if @write_buffer.empty?
-            @multiplexer.stop_write self
-            @write_immediately = true
-            return
-          end
+        # TODO: Make these customisable?
+        WRITE_BUFFER_MAX = 16_384
+        WRITE_SIZE = 4_096
 
+        def handle_write
           begin
             do_write
           rescue IO::WaitWritable, Errno::EINTR, Errno::EAGAIN
-            # Keep waiting for write
+            # Wait for write
+            @write_immediately = false
+            @multiplexer.wait_write self
             return
           rescue IOError, Errno::ECONNRESET => e
             write_exception e
+            return
           end
 
+          @write_immediately = true
+          @multiplexer.stop_write self
           nil
         end
 
@@ -43,12 +46,7 @@ module IOMultiplex
           raise IOError, 'Socket is closed' if @io.closed?
 
           @write_buffer.push data
-          @multiplexer.wait_write self
-
-          if @write_immediately
-            handle_write
-            @write_immediately = false
-          end
+          handle_write if @write_immediately
 
           # Write buffer too large - pause read polling
           if @r && write_full?
@@ -61,8 +59,7 @@ module IOMultiplex
         end
 
         def write_full?
-          # TODO: Make write buffer max customisable?
-          @write_buffer.length >= 16 * 1024
+          @write_buffer.length >= WRITE_BUFFER_MAX
         end
 
         protected
@@ -93,7 +90,7 @@ module IOMultiplex
 
         # Can be overriden for other IO objects
         def write_action
-          write_nonblock @write_buffer.peek(4096)
+          write_nonblock @write_buffer.peek(WRITE_SIZE)
         end
 
         def write_exception(e)

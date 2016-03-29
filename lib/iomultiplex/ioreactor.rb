@@ -47,7 +47,7 @@ module IOMultiplex
       end
       if @w
         @write_buffer = StringBuffer.new
-        @write_immediately = false
+        @write_immediately = true
       end
 
       @id = id || calculate_id
@@ -70,7 +70,6 @@ module IOMultiplex
       add_logger_context 'client', @id
 
       @multiplexer.wait_read self if @r
-      @multiplexer.wait_write self if @w
 
       @attached = true
       nil
