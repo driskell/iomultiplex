@@ -22,9 +22,13 @@ module IOMultiplex
 
       %w(fatal error warn info debug).each do |level|
         method = ('log_' + level).to_sym
-        level = level.to_sym
+        pmethod = ('log_' + level + '?').to_sym
+        logger_method = level.to_sym
+        logger_pmethod = (level + '?').to_sym
 
         define_method(method) do |*args|
+          return unless @logger.send(logger_pmethod)
+
           args[1] ||= {}
 
           unless args[1].is_a?(Hash)
@@ -32,7 +36,11 @@ module IOMultiplex
           end
 
           args[1].merge! @logger_context unless @logger_context.nil?
-          @logger.send(level, *args)
+          @logger.send logger_method, *args
+        end
+
+        define_method(pmethod) do
+          @logger.send logger_pmethod
         end
       end
     end # ::Logger

@@ -59,6 +59,8 @@ module IOMultiplex
 
         if state & State::STATE_WAIT_READ == 0 &&
            state & State::STATE_WAIT_WRITE == 0
+          log_debug 'NIO::Select interest updated',
+                    :client => client.id, :interests => nil
           return
         elsif state & State::STATE_WAIT_READ == 0
           interests = :w
