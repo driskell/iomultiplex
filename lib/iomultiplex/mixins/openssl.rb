@@ -28,11 +28,7 @@ module IOMultiplex
           return if @write_on_read
         end
 
-        begin
-          super
-        rescue ::OpenSSL::SSL::SSLError => e
-          read_exception e
-        end
+        super
 
         # If we were waiting for a write signal so we could complete a read
         # call, clear it since we now completed it
@@ -55,13 +51,7 @@ module IOMultiplex
           return if @read_on_write
         end
 
-        # Since we didn't hit a WaitWritable we may have more room to write, so
-        # allow write immediately flag to be set, or even data to be written
-        begin
-          super
-        rescue ::OpenSSL::SSL::SSLError => e
-          write_exception e
-        end
+        super
 
         # If we were waiting for a read signal so we could complete a write
         # call, clear it since we now completed it
@@ -104,6 +94,12 @@ module IOMultiplex
 
       def ssl_read_nonblock(n)
         read = @ssl.read_nonblock n
+      rescue IO::WaitReadable
+        # OpenSSL wraps these, keep it flowing throw
+        raise
+      rescue ::OpenSSL::SSL::SSLError => e
+        # Throw back OpenSSL errors as IOErrors
+        raise IOError, "#{e.class.name}: #{e}"
       ensure
         log_debug 'SSL read_nonblock',
                   count: n, read: read.nil? ? nil : read.length
@@ -111,6 +107,12 @@ module IOMultiplex
 
       def ssl_write_nonblock(data)
         written = @ssl.write_nonblock data
+      rescue IO::WaitWritable
+        # OpenSSL wraps these, keep it flowing throw
+        raise
+      rescue ::OpenSSL::SSL::SSLError => e
+        # Throw back OpenSSL errors as IOErrors
+        raise IOError, "#{e.class.name}: #{e}"
       ensure
         log_debug 'SSL write_nonblock',
                   count: data.length, written: written
@@ -134,6 +136,12 @@ module IOMultiplex
         handshake_completed if respond_to?(:handshake_completed)
 
         log_debug 'Handshake completed'
+      rescue IO::WaitReadable, IO::WaitWritable
+        # OpenSSL wraps these, keep it flowing throw
+        raise
+      rescue ::OpenSSL::SSL::SSLError => e
+        # Throw back OpenSSL errors as IOErrors
+        raise IOError, "#{e.class.name}: #{e}"
       end
     end # ::OpenSSL
   end # ::Mixins

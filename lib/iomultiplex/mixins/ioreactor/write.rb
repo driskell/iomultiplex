@@ -26,18 +26,10 @@ module IOMultiplex
         def handle_write
           begin
             do_write
-          rescue IO::WaitWritable, Errno::EINTR, Errno::EAGAIN
-            # Wait for write
-            @write_immediately = false
-            @multiplexer.wait_write self
-            return
           rescue IOError, Errno::ECONNRESET => e
             write_exception e
-            return
           end
 
-          @write_immediately = true
-          @multiplexer.stop_write self
           nil
         end
 
@@ -69,17 +61,31 @@ module IOMultiplex
         end
 
         def do_write
-          was_read_held = reading? && write_full?
+          @was_read_held = reading? && write_full?
           @write_buffer.shift write_action
 
           if @write_buffer.empty?
             force_close if @close_scheduled
-          elsif was_read_held && !write_full?
-            log_debug 'write buffer no longer full, resuming read',
-                      count: @write_buffer.length
-            @multiplexer.wait_read self
-            reschedule_read
+            return
           end
+
+          check_read_throttle
+        rescue IO::WaitWritable, Errno::EINTR, Errno::EAGAIN
+          # Wait for write
+          @write_immediately = false
+          @multiplexer.wait_write self
+        else
+          @write_immediately = true
+          @multiplexer.stop_write self
+        end
+
+        def check_read_throttle
+          return unless @was_read_held && !write_full?
+
+          log_debug 'write buffer no longer full, resuming read',
+                    count: @write_buffer.length
+          @multiplexer.wait_read self
+          reschedule_read
         end
 
         # Can be overridden for other IO objects
