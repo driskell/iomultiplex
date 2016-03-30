@@ -25,17 +25,14 @@ module IOMultiplex
           unless timer.respond_to? :timer
 
         state = get_state(timer)
-        remove_timer_state timer, true if state & State::STATE_TIMER != 0
-        j = -1
-        unless @timers.empty?
-          0.step(@timers.length - 1, 2) do |i|
-            next unless @timers[i] > at
-            j = i
-            break
-          end
-        end
-        @timers.insert j, at, timer
-        add_state timer, State::STATE_TIMER
+        exists = state & State::STATE_TIMER != 0
+        @timers.delete [@timers_time[timer], timer] if exists
+
+        entry = [at, timer]
+        @timers.add entry
+        @timers_time[timer] = at
+
+        add_state timer, State::STATE_TIMER unless exists
         nil
       end
 
@@ -43,19 +40,21 @@ module IOMultiplex
         state = must_get_state(timer)
         return unless state & State::STATE_TIMER != 0
 
-        remove_timer_state timer, true
+        entry = [@timers_time[timer], timer]
+        remove_timer_state entry
         nil
       end
 
       protected
 
       def initialize_timers
-        @timers = []
+        @timers = SortedSet.new
+        @timers_time = {}
       end
 
       def next_timer
-        return nil if @timers.empty?
-        @timers[0]
+        entry = @timers.first
+        entry.nil? ? nil : entry[0]
       end
 
       # Trigger available timers
@@ -63,28 +62,21 @@ module IOMultiplex
         return if @timers.empty?
 
         now = Time.now
-
         until @timers.empty?
-          break if @timers[0] > now
-          @timers.shift
-          timer = @timers.shift
-          remove_timer_state timer, false
-          timer.timer
+          entry = @timers.first
+          break if entry[0] > now
+          remove_timer_state entry
+          entry[1].timer
         end
 
         nil
       end
 
       # Remove a timer from the internal state
-      def remove_timer_state(timer, cancel)
-        if cancel && !@timers.empty?
-          0.step(@timers.length - 1, 2) do |i|
-            if @timers[i + 1] == timer
-              @timers.slice! i, 2
-              break
-            end
-          end
-        end
+      def remove_timer_state(entry)
+        timer = entry[1]
+        @timers.delete entry
+        @timers_time.delete timer
 
         state = remove_state(timer, State::STATE_TIMER)
         deregister_state timer if state == 0
