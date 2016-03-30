@@ -98,7 +98,7 @@ module IOMultiplex
 
         def send_eof
           unless @exception.nil?
-            exception @exception if respond_to(:exception)
+            exception @exception if respond_to?(:exception)
             force_close
             return
           end
