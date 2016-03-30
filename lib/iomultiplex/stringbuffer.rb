@@ -21,7 +21,7 @@ module IOMultiplex
   # The allocations only happen at the point that enough data is received to
   # meet a request and at that time only a single allocation is performed
   class StringBuffer
-    attr_accessor :length
+    attr_reader :length
 
     def initialize
       reset
