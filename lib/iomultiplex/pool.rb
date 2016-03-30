@@ -23,8 +23,10 @@ module IOMultiplex
   class MultiplexerPool
     include Mixins::Logger
 
+    attr_reader :id
+
     def initialize(options)
-      %w(parent num_workers).each do |k|
+      %w(num_workers).each do |k|
         raise ArgumentError, "Required option missing: #{k}" \
           unless options[k.to_sym]
       end
@@ -34,61 +36,88 @@ module IOMultiplex
       @id = options[:id] || object_id
       add_logger_context 'multiplexer_pool', @id
 
-      @parent = options[:parent]
-      @workers = []
-      @pipes = []
-      @queues = []
-      @threads = []
+      @num_workers = options[:num_workers]
+      @queued_clients = []
 
-      options[:num_workers].times do |i|
+      reset_state
+    end
+
+    def start
+      raise 'Already started' unless @workers.empty?
+
+      @num_workers.times do |i|
         @workers[i] = Multiplexer.new \
           logger: logger,
           logger_context: logger_context,
-          id: "#{options[:id]}-Worker-#{i}"
-        @workers[i].add @pipes[i].reader, false
-        @parent.add @pipes[i].writer, false
+          id: "Worker-#{i}"
+
         @queues[i] = Queue.new
 
         @threads[i] = Thread.new(@workers[i], &:run)
       end
+
+      distribute_queued_clients
       nil
     end
 
     def distribute(client)
-      selected = [nil, nil]
+      return queue_client(client) if @workers.empty?
+
+      s = nil
+      c = 0
       @workers.each_index do |i|
         connections = @workers[i].connections
         # TODO: Make customisable this maxmium
-        next if connections >= 1000
-        selected = [i, connections] if !selected[0] || selected[1] > connections
+        next unless connections < 1000 && (s.nil? || c > connections)
+        s = i
+        c = connections
       end
 
-      return false unless selected[0]
+      return false if s.nil?
+      worker = @workers[s]
 
-      @queues[selected[0]] << client
-      @workers[selected[0]].callback process, i
+      log_debug 'Distributing new client',
+                :client => client.id, :worker => worker.id
+      @queues[s] << client
+      worker.callback do
+        process s
+      end
       true
     end
 
     def shutdown
+      raise 'Not started' if @workers.empty?
+
       # Raise shutdown in all client threads and join then
-      @workers.each(&shutdown)
+      @workers.each(&:shutdown)
       @threads.each(&:join)
+
+      reset_state
       nil
     end
 
     private
 
+    def reset_state
+      @workers = []
+      @queues = []
+      @threads = []
+    end
+
+    def queue_client(client)
+      @queued_clients << client
+      nil
+    end
+
+    def distribute_queued_clients
+      distribute @queued_clients.pop until @queued_clients.empty?
+      nil
+    end
+
     def process(i)
-      loop do
-        # Socket for the worker
-        length = @queues[i].length
-        log_debug 'Receiving new sockets', length: length
-        while length != 0
-          @workers[i].add @queues[i].pop
-          length -= 1
-        end
-      end
+      # Sockets for the worker
+      log_debug 'Receiving new sockets', length: @queues[i].length
+      @workers[i].add @queues[i].pop until @queues[i].empty?
       nil
     end
   end
