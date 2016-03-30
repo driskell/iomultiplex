@@ -19,10 +19,10 @@ require 'iomultiplex/ioreactor'
 module IOMultiplex
   # A TCP listener
   class TCPListener < IOReactor
-    def initialize(address, port, pool = nil, &block)
+    def initialize(address, port, id = nil, pool = nil, &block)
       raise RuntimeError, 'connection_accepted not implemented', nil \
         unless block_given? || respond_to?(:connection_accepted)
-      super TCPServer.new(address, port), 'r'
+      super TCPServer.new(address, port), 'r', id
       @io.listen 1024
       @pool = pool
       @block = block

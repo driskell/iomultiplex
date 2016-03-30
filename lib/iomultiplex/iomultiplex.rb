@@ -24,6 +24,8 @@ module IOMultiplex
     include Mixins::Timer
     include Mixins::Callback
 
+    attr_reader :id
+
     def initialize(options = {})
       @mutex = Mutex.new
       @connections = 0

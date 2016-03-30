@@ -21,14 +21,14 @@ require 'iomultiplex/stringbuffer'
 module IOMultiplex
   # IOReactor - reactor style wrapper around IO objects
   class IOReactor
+    include Mixins::Logger
+    include Mixins::IOReactor::Read
+    include Mixins::IOReactor::Write
+
     attr_reader :id
     attr_reader :io
     attr_reader :mode
     attr_reader :peer
-
-    include Mixins::Logger
-    include Mixins::IOReactor::Read
-    include Mixins::IOReactor::Write
 
     def initialize(io, mode = 'rw', id = nil)
       @io = io
