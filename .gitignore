@@ -1,5 +1,4 @@
 /.vagrant
 /coverage
-/lib/iomultiplex/version.rb
 /pkg
 /vendor
