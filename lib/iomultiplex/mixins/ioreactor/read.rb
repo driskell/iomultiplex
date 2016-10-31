@@ -37,7 +37,6 @@ module IOMultiplex
         end
 
         def handle_data
-          @was_read_full = read_full?
           process unless @read_buffer.empty?
           nil
         rescue NotEnoughData
@@ -53,7 +52,6 @@ module IOMultiplex
         end
 
         def read(n)
-          raise 'Socket is not attached' unless @attached
           raise IOError, 'Socket is closed' if @io.closed?
           raise NotEnoughData, 'Not enough data', nil if @read_buffer.length < n
 
@@ -72,6 +70,7 @@ module IOMultiplex
           return if @pause
           log_debug 'pause read'
           @pause = true
+          @was_paused = true
           nil
         end
 
@@ -131,6 +130,7 @@ module IOMultiplex
             log_info 'Holding read due to full read buffer'
             @multiplexer.stop_read self
             @multiplexer.defer self
+            @was_paused = true
             return
           end
 
@@ -152,7 +152,10 @@ module IOMultiplex
           @multiplexer.defer self unless @read_buffer.empty?
 
           # Resume read signal if we had paused due to full buffer
-          @multiplexer.wait_read self if @was_read_full
+          if !@exception && @was_paused
+            @was_paused = false
+            @multiplexer.wait_read self
+          end
 
           nil
         end

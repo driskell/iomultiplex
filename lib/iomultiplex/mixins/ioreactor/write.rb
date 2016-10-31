@@ -34,7 +34,6 @@ module IOMultiplex
         end
 
         def write(data)
-          raise 'Socket is not attached' unless @attached
           raise IOError, 'Socket is closed' if @io.closed?
 
           @write_buffer.push data
@@ -66,17 +65,16 @@ module IOMultiplex
 
           if @write_buffer.empty?
             force_close if @close_scheduled
-            return
+          else
+            check_read_throttle
           end
-
-          check_read_throttle
         rescue IO::WaitWritable, Errno::EINTR, Errno::EAGAIN
           # Wait for write
-          @write_immediately = false
           @multiplexer.wait_write self
+          @write_immediately = false
         else
+          @multiplexer.stop_write self unless @write_immediately
           @write_immediately = true
-          @multiplexer.stop_write self
         end
 
         def check_read_throttle

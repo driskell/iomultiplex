@@ -62,7 +62,7 @@ module IOMultiplex
             unless get_state(client).nil?
 
       register_state client
-      client.attach self
+      client.attach @multiplexer
 
       @mutex.synchronize do
         @connections += 1
@@ -77,7 +77,6 @@ module IOMultiplex
         @connections -= 1
       end
 
-      client.detach
       stop_all client
       remove_post client
       remove_timer client

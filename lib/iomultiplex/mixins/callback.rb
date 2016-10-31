@@ -17,7 +17,6 @@
 module IOMultiplex
   module Mixins
     # Callback methods
-    # Depends on Mixins::State
     module Callback
       # Run a callback on the IO thread
       # Can be safely triggered from any thread

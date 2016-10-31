@@ -62,28 +62,20 @@ module IOMultiplex
       @io.peeraddr
     end
 
-    def attach(multiplexer)
-      raise ArgumentError, 'Socket is already attached' if @attached
-
+    def multiplexer=(multiplexer)
       @multiplexer = multiplexer
-      initialize_logger multiplexer.logger, multiplexer.logger_context.dup
-      add_logger_context 'client', @id
-
       @multiplexer.wait_read self if @r
-
-      @attached = true
-      nil
     end
 
-    def detach
-      raise ArgumentError, 'Socket is not yet attached' unless @attached
-      @attached = false
+    def set_logger(logger, logger_context)
+      initialize_logger logger, logger_context
+      add_logger_context 'client', @id
       nil
     end
 
     def close
       @read_buffer.reset
-      if !@w
+      if @w
         @close_scheduled = true
       else
         force_close

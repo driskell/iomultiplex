@@ -16,6 +16,7 @@
 
 require 'cabin'
 require 'iomultiplex/mixins/callback'
+require 'iomultiplex/mixins/logger'
 require 'iomultiplex/mixins/logslow'
 require 'iomultiplex/mixins/post'
 require 'iomultiplex/mixins/select'

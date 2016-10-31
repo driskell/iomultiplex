@@ -14,103 +14,39 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-require 'cabin'
 require 'iomultiplex'
+require_relative './helper'
 
-RSpec.describe IOMultiplex::IOReactorRead do
-  context 'initialize' do
-    before :example do
-      @io = double
-      @logger = instance_spy(Cabin::Channel)
-      @multiplexer = instance_double(IOMultiplex::Multiplexer)
-    end
+RSpec.describe IOMultiplex::Mixins::IOReactor::Read do
+  include IOMultiplex::IOReactorHelper
 
-    it 'waits for read when attached in read-only mode' do
-      expect(@multiplexer).to receive(:wait_read)
-      IOMultiplex::IOReactor.new(@io, 'r').attach @multiplexer, @logger
-    end
-
-    it 'waits for write when attached in write-only mode' do
-      expect(@multiplexer).to receive(:wait_write)
-      IOMultiplex::IOReactor.new(@io, 'w').attach @multiplexer, @logger
-    end
-
-    it 'waits for read and write when attached in read-write mode' do
-      expect(@multiplexer).to receive(:wait_read)
-      expect(@multiplexer).to receive(:wait_write)
-      IOMultiplex::IOReactor.new(@io, 'rw').attach @multiplexer, @logger
-    end
-  end
-
-  def setup(attach = true)
-    @io = spy
-
-    @closed = false
-    allow(@io).to receive(:closed?) do
-      @closed
-    end
-
-    @logger = instance_spy(Cabin::Channel)
-    @multiplexer = instance_double(IOMultiplex::Multiplexer)
-    @r = IOMultiplex::IOReactor.new(@io, 'r')
-
-    return unless attach
-    expect(@multiplexer).to receive(:wait_read)
-    @r.attach @multiplexer, @logger
-  end
-
-  context 'handle_read' do
-
-  end
-
-  context 'handle_data' do
-    
+  before :example do
+    setup
   end
 
   context 'read' do
     before :example do
-      setup
+      expect(@multiplexer).to receive(:wait_read)
+      make_reactor 'r'
     end
 
-    context '(attached)' do
-      it 'returns the data from the buffer if it has some' do
-        @r.instance_variable_get(:@read_buffer) << '1234567890'
-        expect(@r.read(5)).to eq '12345'
-        expect(@r.read(5)).to eq '67890'
-      end
-
-      it 'raises NotEnoughData if buffer is not big enough' do
-        expect do
-          @r.read 10
-        end.to raise_error(IOMultiplex::NotEnoughData)
-      end
-
-      it 'raises IOError if the socket is closed' do
-        @r.instance_variable_get(:@read_buffer) << '1234567890'
-        @closed = true
-        expect do
-          @r.read 8
-        end.to raise_error(IOError)
-      end
+    it 'returns the data from the buffer if it has some' do
+      @r.instance_variable_get(:@read_buffer) << '1234567890'
+      expect(@r.read(5)).to eq '12345'
+      expect(@r.read(5)).to eq '67890'
     end
 
-    context '(unattached)' do
-      before :example do
-        setup false
-      end
-
-      it 'raises RuntimeError' do
-        @r.instance_variable_get(:@read_buffer) << '1234567890'
-        expect do
-          @r.read 10
-        end.to raise_error(RuntimeError)
-      end
+    it 'raises NotEnoughData if buffer is not big enough' do
+      expect do
+        @r.read 10
+      end.to raise_error(IOMultiplex::NotEnoughData)
     end
   end
 
   context 'discard' do
     before :example do
-      setup
+      expect(@multiplexer).to receive(:wait_read)
+      make_reactor 'r'
     end
 
     it 'empties the read buffer' do
@@ -123,7 +59,183 @@ RSpec.describe IOMultiplex::IOReactorRead do
     end
   end
 
-  context 'reschedule' do
+  context 'handle_read and handle_data' do
+    before :example do
+      expect(@multiplexer).to receive(:wait_read)
+      make_reactor 'r'
+    end
 
+    it 'reads from the IO object' do
+      expect(@io).to receive(:read_nonblock).with(read_size)
+      @r.handle_read
+    end
+
+    it 'handles WaitReadable and EINTR/EAGAIN exceptions during read' do
+      expect(@io).to receive(:read_nonblock) { raise IOMultiplex::WaitReadable }
+      @r.handle_read
+
+      expect(@io).to receive(:read_nonblock) { raise Errno::EINTR }
+      @r.handle_read
+
+      expect(@io).to receive(:read_nonblock) { raise Errno::EAGAIN }
+      @r.handle_read
+    end
+
+    it 'gracefully raises an exception and closes if an IOError occurs' do
+      expect(@io).to receive(:read_nonblock).with(
+        IOMultiplex::Mixins::IOReactor::Read::READ_SIZE
+      ) { raise IOError }
+      expect(@io).to receive(:close)
+      expect(@r).to receive(:exception).with(IOError)
+      expect(@multiplexer).to receive(:stop_read)
+      expect(@multiplexer).to receive(:remove)
+      @r.handle_read
+    end
+
+    it 'gracefully raises connection reset errors' do
+      expect(@io).to receive(:read_nonblock).with(
+        IOMultiplex::Mixins::IOReactor::Read::READ_SIZE
+      ) { raise Errno::ECONNRESET }
+      expect(@io).to receive(:close)
+      expect(@r).to receive(:exception).with(Errno::ECONNRESET)
+      expect(@multiplexer).to receive(:stop_read)
+      expect(@multiplexer).to receive(:remove)
+      @r.handle_read
+    end
+
+    it 'defers read if we do not read all data' do
+      expect(@io).to receive(:read_nonblock).and_return make_data(read_size)
+      expect(@r).to receive(:process) { @r.read(read_size / 2) }
+      expect(@multiplexer).to receive(:defer)
+      @r.handle_read
+    end
+
+    it 'stops reading if the buffer becomes full and defers' do
+      expect(@io).to receive(:read_nonblock).and_return \
+        make_data(read_buffer_max)
+      expect(@r).to receive(:process)
+      expect(@multiplexer).to receive(:stop_read)
+      expect(@multiplexer).to receive(:defer)
+      @r.handle_read
+    end
+
+    it 'allows the buffer to overfill if a read needs more than buffer size' do
+      expect(@io).to receive(:read_nonblock).and_return make_data(read_size)
+      expect(@r).to receive(:process) { @r.read(read_size * 2) }
+      expect(@multiplexer).to receive(:defer)
+      @r.handle_read
+
+      expect(@io).to receive(:read_nonblock).and_return make_data(read_size)
+      expect(@r).to receive(:process) { @r.read(read_size * 2) }
+      @r.handle_read
+    end
+
+    it 'starts reading again if the buffer was full and we cleared it' do
+      expect(@io).to receive(:read_nonblock).and_return make_data(read_size)
+      expect(@r).to receive(:process)
+      expect(@multiplexer).to receive(:stop_read)
+      expect(@multiplexer).to receive(:defer)
+      @r.handle_read
+
+      expect(@r).to receive(:process) { @r.read(read_size / 2) }
+      expect(@multiplexer).to receive(:wait_read)
+      expect(@multiplexer).to receive(:defer)
+      @r.handle_data
+    end
+  end
+
+  context 'handle_read and handle_data with duplex' do
+    before :example do
+      expect(@multiplexer).to receive(:wait_read)
+      make_reactor 'rw'
+    end
+
+    it 'stops reading if the write buffer becomes full' do
+      @r.instance_variable_get(:@write_buffer) << make_data(write_buffer_max)
+      expect(@io).to receive(:read_nonblock).and_return make_data(100)
+      expect(@r).to receive(:process)
+      expect(@multiplexer).to receive(:stop_read)
+      @r.handle_read
+    end
+  end
+
+  context 'eof' do
+    before :example do
+      expect(@multiplexer).to receive(:wait_read)
+      make_reactor 'r'
+    end
+
+    it 'is triggered and socket removed if no data in the buffer' do
+      expect(@io).to receive(:read_nonblock) { raise EOFError }
+      expect(@r).to receive(:eof)
+      expect(@multiplexer).to receive(:stop_read)
+      expect(@multiplexer).to receive(:remove)
+      @r.handle_read
+    end
+
+    it 'is triggered when we finished reading all data' do
+      expect(@io).to receive(:read_nonblock).and_return make_data(10)
+      expect(@r).to receive(:process) { @r.read(5) }
+      expect(@multiplexer).to receive(:defer)
+      @r.handle_read
+
+      expect(@io).to receive(:read_nonblock) { raise EOFError }
+      expect(@r).to receive(:process) { @r.read(5) }
+      expect(@r).to receive(:eof)
+      expect(@multiplexer).to receive(:stop_read)
+      expect(@multiplexer).to receive(:remove)
+      @r.handle_read
+    end
+
+    it 'is triggered when we expect more data than available' do
+      expect(@io).to receive(:read_nonblock).and_return make_data(10)
+      expect(@r).to receive(:process) { @r.read(5) }
+      expect(@multiplexer).to receive(:defer)
+      @r.handle_read
+
+      expect(@io).to receive(:read_nonblock) { raise EOFError }
+      expect(@r).to receive(:process) { @r.read(50) }
+      expect(@r).to receive(:eof)
+      expect(@multiplexer).to receive(:stop_read)
+      expect(@multiplexer).to receive(:remove)
+      @r.handle_read
+    end
+  end
+
+  context 'eof with duplex' do
+    before :example do
+      expect(@multiplexer).to receive(:wait_read)
+      make_reactor 'rw'
+    end
+
+    it 'prevents further reading' do
+      expect(@io).to receive(:read_nonblock).with(
+        IOMultiplex::Mixins::IOReactor::Read::READ_SIZE
+      ) { raise EOFError }
+      expect(@multiplexer).to receive(:stop_read)
+      @r.handle_read
+    end
+  end
+
+  context 'pause and resume' do
+    before do
+      expect(@multiplexer).to receive(:wait_read)
+      make_reactor 'r'
+    end
+
+    it 'reschedules accordingly' do
+      expect(@io).to receive(:read_nonblock).and_return make_data(10)
+      expect(@r).to receive(:process) { @r.pause }
+      expect(@multiplexer).to receive(:stop_read)
+      @r.handle_read
+
+      expect(@multiplexer).to receive(:wait_read)
+      expect(@multiplexer).to receive(:defer)
+      @r.resume
+
+      expect(@io).to receive(:read_nonblock).and_return ''
+      expect(@r).to receive(:process) { @r.read(10) }
+      @r.handle_read
+    end
   end
 end
