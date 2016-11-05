@@ -31,9 +31,5 @@ module IOMultiplex
     def read_buffer_max
       IOMultiplex::Mixins::IOReactor::Read::READ_BUFFER_MAX
     end
-
-    def write_buffer_max
-      IOMultiplex::Mixins::IOReactor::Write::WRITE_BUFFER_MAX
-    end
   end
 end

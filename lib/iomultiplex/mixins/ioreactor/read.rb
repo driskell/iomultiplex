@@ -134,15 +134,6 @@ module IOMultiplex
             return
           end
 
-          # Only schedule read if write isn't full - this allows us to drain
-          # write buffer before reading again and prevents a client from sending
-          # large amounts of data without receiving responses
-          if @w && write_full?
-            log_info 'Holding read due to full write buffer'
-            @multiplexer.stop_read self
-            return
-          end
-
           schedule_read
         end
 

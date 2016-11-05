@@ -144,21 +144,6 @@ RSpec.describe IOMultiplex::Mixins::IOReactor::Read do
     end
   end
 
-  context 'handle_read and handle_data with duplex' do
-    before :example do
-      expect(@multiplexer).to receive(:wait_read)
-      make_reactor 'rw'
-    end
-
-    it 'stops reading if the write buffer becomes full' do
-      @r.instance_variable_get(:@write_buffer) << make_data(write_buffer_max)
-      expect(@io).to receive(:read_nonblock).and_return make_data(100)
-      expect(@r).to receive(:process)
-      expect(@multiplexer).to receive(:stop_read)
-      @r.handle_read
-    end
-  end
-
   context 'eof' do
     before :example do
       expect(@multiplexer).to receive(:wait_read)

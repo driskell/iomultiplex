@@ -20,7 +20,6 @@ module IOMultiplex
       # Write mixin for IOReactor
       module Write
         # TODO: Make these customisable?
-        WRITE_BUFFER_MAX = 16_384
         WRITE_SIZE = 4_096
 
         def handle_write
@@ -38,51 +37,52 @@ module IOMultiplex
 
           @write_buffer.push data
           handle_write if @write_immediately
-
-          # Write buffer too large - pause read polling
-          if @r && write_full?
-            log_debug 'write buffer full, pausing read',
-                      count: @write_buffer.length
-            @multiplexer.stop_read self
-            @multiplexer.remove_post self
-          end
           nil
         end
 
-        def write_full?
-          @write_buffer.length >= WRITE_BUFFER_MAX
+        def flush
+          raise IOError, 'Flush available only in rw mode' unless @r
+
+          return if @write_buffer.empty?
+
+          # Pause read until we have flushed all data
+          log_debug 'pausing read to flush write buffer',
+                    count: @write_buffer.length
+          @multiplexer.stop_read self
+          @multiplexer.remove_post self
+          @flush_in_progress = true
         end
 
         protected
 
-        def reading?
-          @r && !@pause
-        end
-
         def do_write
-          @was_read_held = reading? && write_full?
           @write_buffer.shift write_action
 
-          if @write_buffer.empty?
-            force_close if @close_scheduled
-          else
-            check_read_throttle
-          end
+          reschedule_write
         rescue IO::WaitWritable, Errno::EINTR, Errno::EAGAIN
-          # Wait for write
-          @multiplexer.wait_write self
-          @write_immediately = false
-        else
-          @multiplexer.stop_write self unless @write_immediately
-          @write_immediately = true
+          reschedule_write
         end
 
-        def check_read_throttle
-          return unless @was_read_held && !write_full?
+        def reschedule_write
+          unless @write_buffer.empty?
+            # Wait for write
+            @multiplexer.wait_write self if @write_immediately
+            @write_immediately = false
+            return
+          end
 
-          log_debug 'write buffer no longer full, resuming read',
-                    count: @write_buffer.length
+          @multiplexer.stop_write self unless @write_immediately
+          @write_immediately = true
+
+          return force_close if @close_scheduled
+
+          flush_complete if @flush_in_progress
+        end
+
+        def flush_complete
+          log_debug 'write buffer flushed, resuming read'
           @multiplexer.wait_read self
+          @flush_in_progress = false
           reschedule_read
         end
 

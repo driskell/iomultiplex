@@ -33,10 +33,11 @@ module IOMultiplex
     def initialize(io, mode = 'rw', id = nil)
       @io = io
       @multiplexer = nil
-      @attached = false
       @close_scheduled = false
       @eof_scheduled = false
       @exception = nil
+      @flush_in_progress = false
+      @was_paused = false
 
       @r = mode.index('r').nil? ? false : true
       @w = mode.index('w').nil? ? false : true
@@ -62,7 +63,10 @@ module IOMultiplex
       @io.peeraddr
     end
 
+    attr_reader :multiplexer
     def multiplexer=(multiplexer)
+      raise 'Already attached' if @multiplexer
+
       @multiplexer = multiplexer
       @multiplexer.wait_read self if @r
     end
