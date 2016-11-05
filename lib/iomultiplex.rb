@@ -15,6 +15,7 @@
 # limitations under the License.
 
 require 'cabin'
+require 'socket'
 require 'iomultiplex/mixins/callback'
 require 'iomultiplex/mixins/logger'
 require 'iomultiplex/mixins/logslow'
@@ -24,4 +25,5 @@ require 'iomultiplex/mixins/state'
 require 'iomultiplex/mixins/timer'
 require 'iomultiplex/iomultiplex'
 require 'iomultiplex/ioreactor'
+require 'iomultiplex/ioreactor/tcpsocket'
 require 'iomultiplex/tcplistener'

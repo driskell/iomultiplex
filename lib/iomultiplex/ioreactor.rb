@@ -55,14 +55,6 @@ module IOMultiplex
       nil
     end
 
-    def addr
-      @io.addr
-    end
-
-    def peeraddr
-      @io.peeraddr
-    end
-
     attr_reader :multiplexer
     def multiplexer=(multiplexer)
       raise 'Already attached' if @multiplexer
@@ -96,18 +88,6 @@ module IOMultiplex
     protected
 
     def calculate_id
-      if @io.respond_to?(:peeraddr)
-        begin
-          peer = @io.peeraddr(:numeric)
-          # IPv4 format
-          return "#{peer[2]}:#{peer[1]}" if peer[2].index(':').nil?
-          # IPv6 format
-          return "[#{peer[2]}]:#{peer[1]}"
-        rescue NotImplementedError, Errno::ENOTCONN
-          return @io.inspect
-        end
-      end
-
       @io.inspect
     end
   end # ::IOReactor
