@@ -33,7 +33,7 @@ module IOMultiplex
       # Don't wait for anything when we attach
       def multiplexer=(multiplexer)
         raise 'Already attached' if @multiplexer
-        super @multiplexer if @connected
+        return super multiplexer if @connected
         @multiplexer = multiplexer
       end
 
@@ -80,21 +80,6 @@ module IOMultiplex
         handle_connect
       end
 
-      def read(n)
-        raise IOError, 'Not connected' unless @connected
-        super n
-      end
-
-      def write(data)
-        raise IOError, 'Not connected' unless @connected
-        super data
-      end
-
-      def flush
-        raise IOError, 'Not connected' unless @connected
-        super
-      end
-
       def addr(reverse_lookup = true)
         sockaddr_in_to_addr @io.getsockname, reverse_lookup
       end
@@ -112,24 +97,26 @@ module IOMultiplex
           return
         end
 
-        connection socket
+        connection socket[0]
       end
 
       def handle_connect
         begin
           @io.connect_nonblock(@connect_to)
-          raise Errno::EISCONN
         rescue Errno::EISCONN
-          @connected = true
-          @multiplexer.stop_write self unless @write_immediately
-          @multiplexer.wait_read self
-          @write_immediately = true
+          nil
         rescue IO::WaitWritable
           @multiplexer.wait_write self
           @write_immediately = false
-        rescue IOError => e
-          write_exception e
+          return
+        rescue IOError, Errno::ECONNREFUSED => e
+          return write_exception(e)
         end
+
+        @connected = true
+        @multiplexer.stop_write self unless @write_immediately
+        @multiplexer.wait_read self
+        @write_immediately = true
 
         nil
       end
@@ -146,9 +133,9 @@ module IOMultiplex
       def calculate_id
         peer = peeraddr(:numeric)
         # IPv4 format
-        return "#{peer[2]}:#{peer[1]}" if peer[2].index(':').nil?
+        return "#{peer[2]}:#{peer[1]}" # if peer[2].index(':').nil?
         # IPv6 format
-        return "[#{peer[2]}]:#{peer[1]}"
+        # return "[#{peer[2]}]:#{peer[1]}"
       rescue NotImplementedError, Errno::ENOTCONN
         return @io.inspect
       end
