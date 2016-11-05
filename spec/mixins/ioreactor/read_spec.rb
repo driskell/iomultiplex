@@ -15,7 +15,7 @@
 # limitations under the License.
 
 require 'iomultiplex'
-require_relative './helper'
+require_relative '../../ioreactor/helper'
 
 RSpec.describe IOMultiplex::Mixins::IOReactor::Read do
   include IOMultiplex::IOReactorHelper
@@ -27,7 +27,7 @@ RSpec.describe IOMultiplex::Mixins::IOReactor::Read do
   context 'read' do
     before :example do
       expect(@multiplexer).to receive(:wait_read)
-      make_reactor 'r'
+      @r = make_reactor 'r'
     end
 
     it 'returns the data from the buffer if it has some' do
@@ -46,7 +46,7 @@ RSpec.describe IOMultiplex::Mixins::IOReactor::Read do
   context 'discard' do
     before :example do
       expect(@multiplexer).to receive(:wait_read)
-      make_reactor 'r'
+      @r = make_reactor 'r'
     end
 
     it 'empties the read buffer' do
@@ -62,7 +62,7 @@ RSpec.describe IOMultiplex::Mixins::IOReactor::Read do
   context 'handle_read and handle_data' do
     before :example do
       expect(@multiplexer).to receive(:wait_read)
-      make_reactor 'r'
+      @r = make_reactor 'r'
     end
 
     it 'reads from the IO object' do
@@ -147,7 +147,7 @@ RSpec.describe IOMultiplex::Mixins::IOReactor::Read do
   context 'eof' do
     before :example do
       expect(@multiplexer).to receive(:wait_read)
-      make_reactor 'r'
+      @r = make_reactor 'r'
     end
 
     it 'is triggered and socket removed if no data in the buffer' do
@@ -190,7 +190,7 @@ RSpec.describe IOMultiplex::Mixins::IOReactor::Read do
   context 'eof with duplex' do
     before :example do
       expect(@multiplexer).to receive(:wait_read)
-      make_reactor 'rw'
+      @r = make_reactor 'rw'
     end
 
     it 'prevents further reading' do
@@ -205,7 +205,7 @@ RSpec.describe IOMultiplex::Mixins::IOReactor::Read do
   context 'pause and resume' do
     before do
       expect(@multiplexer).to receive(:wait_read)
-      make_reactor 'r'
+      @r = make_reactor 'r'
     end
 
     it 'reschedules accordingly' do

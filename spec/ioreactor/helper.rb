@@ -14,10 +14,10 @@ module IOMultiplex
     end
 
     def make_reactor(mode)
-      @r = IOMultiplex::IOReactor.new(@io, mode)
-      @r.multiplexer = @multiplexer
-      @r.set_logger @logger, {}
-      @r
+      r = IOMultiplex::IOReactor.new(@io, mode)
+      r.set_logger @logger, {}
+      r.multiplexer = @multiplexer
+      r
     end
 
     def make_data(size)

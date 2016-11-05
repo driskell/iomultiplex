@@ -15,7 +15,7 @@
 # limitations under the License.
 
 require 'iomultiplex'
-require_relative './helper'
+require_relative '../../ioreactor/helper'
 
 RSpec.describe IOMultiplex::Mixins::IOReactor::Write do
   include IOMultiplex::IOReactorHelper
@@ -26,7 +26,7 @@ RSpec.describe IOMultiplex::Mixins::IOReactor::Write do
 
   context 'write and handle_write' do
     before :example do
-      make_reactor 'w'
+      @r = make_reactor 'w'
     end
 
     it 'immediately writes data on the first write' do
@@ -92,7 +92,7 @@ RSpec.describe IOMultiplex::Mixins::IOReactor::Write do
 
   context 'flush' do
     before :example do
-      make_reactor 'w'
+      @r = make_reactor 'w'
     end
 
     it 'raises an exception as it requires duplex' do
@@ -108,7 +108,7 @@ RSpec.describe IOMultiplex::Mixins::IOReactor::Write do
   context 'flush with duplex' do
     before :example do
       expect(@multiplexer).to receive(:wait_read)
-      make_reactor 'rw'
+      @r = make_reactor 'rw'
     end
 
     it 'pauses read whilst flushing the write buffer' do
