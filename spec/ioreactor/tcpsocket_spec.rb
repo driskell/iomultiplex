@@ -151,7 +151,7 @@ RSpec.describe IOMultiplex::IOReactor::TCPSocket do
       it 'calls connection' do
         @l.handle_read
         until @connection_called
-          sleep 0.5
+          sleep 0.1
           @l.handle_read
         end
       end
@@ -292,6 +292,7 @@ RSpec.describe IOMultiplex::IOReactor::TCPSocket do
           break if @semaphore.synchronize do
             @finished
           end
+          sleep 0.1
         end
       end
 
