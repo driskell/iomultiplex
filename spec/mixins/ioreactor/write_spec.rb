@@ -24,7 +24,7 @@ RSpec.describe IOMultiplex::Mixins::IOReactor::Write do
     setup
   end
 
-  context 'write and handle_write' do
+  describe 'write and handle_write' do
     before :example do
       @r = make_reactor 'w'
     end
@@ -90,7 +90,7 @@ RSpec.describe IOMultiplex::Mixins::IOReactor::Write do
     end
   end
 
-  context 'flush' do
+  describe 'flush' do
     before :example do
       @r = make_reactor 'w'
     end
@@ -105,7 +105,7 @@ RSpec.describe IOMultiplex::Mixins::IOReactor::Write do
     end
   end
 
-  context 'flush with duplex' do
+  describe 'flush with duplex' do
     before :example do
       expect(@multiplexer).to receive(:wait_read)
       @r = make_reactor 'rw'

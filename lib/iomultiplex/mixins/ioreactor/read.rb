@@ -52,7 +52,7 @@ module IOMultiplex
         end
 
         def read(n)
-          raise IOError, 'Socket is closed' if @io.closed?
+          raise IOError, 'Socket is closed' if @closed
           raise NotEnoughData, 'Not enough data', nil if @read_buffer.length < n
 
           @read_buffer.read n

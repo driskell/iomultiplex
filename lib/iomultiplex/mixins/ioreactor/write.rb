@@ -33,7 +33,7 @@ module IOMultiplex
         end
 
         def write(data)
-          raise IOError, 'Socket is closed' if @io.closed?
+          raise IOError, 'Socket is closed' if @closed
 
           @write_buffer.push data
           handle_write if @write_immediately

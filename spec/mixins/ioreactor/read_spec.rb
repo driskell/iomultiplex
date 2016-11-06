@@ -24,7 +24,7 @@ RSpec.describe IOMultiplex::Mixins::IOReactor::Read do
     setup
   end
 
-  context 'read' do
+  describe 'read' do
     before :example do
       expect(@multiplexer).to receive(:wait_read)
       @r = make_reactor 'r'
@@ -43,7 +43,7 @@ RSpec.describe IOMultiplex::Mixins::IOReactor::Read do
     end
   end
 
-  context 'discard' do
+  describe 'discard' do
     before :example do
       expect(@multiplexer).to receive(:wait_read)
       @r = make_reactor 'r'
@@ -59,7 +59,7 @@ RSpec.describe IOMultiplex::Mixins::IOReactor::Read do
     end
   end
 
-  context 'handle_read and handle_data' do
+  describe 'handle_read and handle_data' do
     before :example do
       expect(@multiplexer).to receive(:wait_read)
       @r = make_reactor 'r'
@@ -144,7 +144,7 @@ RSpec.describe IOMultiplex::Mixins::IOReactor::Read do
     end
   end
 
-  context 'eof' do
+  describe 'eof' do
     before :example do
       expect(@multiplexer).to receive(:wait_read)
       @r = make_reactor 'r'
@@ -187,7 +187,7 @@ RSpec.describe IOMultiplex::Mixins::IOReactor::Read do
     end
   end
 
-  context 'eof with duplex' do
+  describe 'eof with duplex' do
     before :example do
       expect(@multiplexer).to receive(:wait_read)
       @r = make_reactor 'rw'
@@ -202,7 +202,7 @@ RSpec.describe IOMultiplex::Mixins::IOReactor::Read do
     end
   end
 
-  context 'pause and resume' do
+  describe 'pause and resume' do
     before do
       expect(@multiplexer).to receive(:wait_read)
       @r = make_reactor 'r'

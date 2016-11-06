@@ -118,6 +118,8 @@ module IOMultiplex
         @multiplexer.wait_read self
         @write_immediately = true
 
+        connected if respond_to?(:connected)
+
         nil
       end
 

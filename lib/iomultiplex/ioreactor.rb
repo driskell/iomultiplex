@@ -34,6 +34,7 @@ module IOMultiplex
       @io = io
       @multiplexer = nil
       @close_scheduled = false
+      @closed = false
       @eof_scheduled = false
       @exception = nil
       @flush_in_progress = false
@@ -80,8 +81,10 @@ module IOMultiplex
     end
 
     def force_close
+      return if @closed
       @multiplexer.remove self
-      @io.close unless @io.closed?
+      @io.close
+      @closed = true
       nil
     end
 
