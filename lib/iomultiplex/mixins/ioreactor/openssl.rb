@@ -65,11 +65,11 @@ module IOMultiplex
         log_debug 'OpenSSL wants write on read'
       end
 
-      def peer_cert
+      def peercert
         @ssl.peer_cert
       end
 
-      def peer_cert_cn
+      def peercertcn
         return nil unless peer_cert
         return @peer_cert_cn unless @peer_cert_cn.nil?
         @peer_cert_cn = peer_cert.subject.to_a.find do |oid, value|
@@ -89,13 +89,14 @@ module IOMultiplex
         @ssl_ctx = ssl_ctx
         @handshake_completed = false
         @read_on_write = false
+        @write_on_read = false
         nil
       end
 
       def ssl_read_nonblock(n)
         read = @ssl.read_nonblock n
       rescue IO::WaitReadable
-        # OpenSSL wraps these, keep it flowing throw
+        # OpenSSL wraps these in SSLError so we have to catch, let it bubble
         raise
       rescue ::OpenSSL::SSL::SSLError => e
         # Throw back OpenSSL errors as IOErrors
@@ -108,7 +109,7 @@ module IOMultiplex
       def ssl_write_nonblock(data)
         written = @ssl.write_nonblock data
       rescue IO::WaitWritable
-        # OpenSSL wraps these, keep it flowing throw
+        # OpenSSL wraps these in SSLError so we have to catch, let it bubble
         raise
       rescue ::OpenSSL::SSL::SSLError => e
         # Throw back OpenSSL errors as IOErrors

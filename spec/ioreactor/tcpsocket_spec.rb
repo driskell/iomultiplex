@@ -18,13 +18,13 @@ require 'iomultiplex'
 
 RSpec.describe IOMultiplex::IOReactor::TCPSocket do
   before :example do
-    setup
-  end
-
-  def setup
     @logger = spy
     @multiplexer = instance_double(IOMultiplex::Multiplexer)
     @close_list = []
+  end
+
+  after :example do
+    @close_list.reverse_each(&:close)
   end
 
   def make_socket(io = nil)
@@ -34,14 +34,6 @@ RSpec.describe IOMultiplex::IOReactor::TCPSocket do
     r.multiplexer = @multiplexer
     @close_list.push r.instance_variable_get(:@io)
     r
-  end
-
-  before :example do
-    setup
-  end
-
-  after :example do
-    @close_list.reverse_each(&:close)
   end
 
   describe 'bind' do

@@ -13,8 +13,8 @@ module IOMultiplex
       @multiplexer = instance_double(IOMultiplex::Multiplexer)
     end
 
-    def make_reactor(mode)
-      r = IOMultiplex::IOReactor.new(@io, mode)
+    def make_reactor(mode, cls = IOMultiplex::IOReactor)
+      r = cls.new(@io, mode)
       r.set_logger @logger, {}
       r.multiplexer = @multiplexer
       r

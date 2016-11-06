@@ -20,13 +20,14 @@ require 'iomultiplex/mixins/openssl'
 module IOMultiplex
   class IOReactor
     # Wraps an OpenSSL IO object which receives TLS connections
-    class OpenSSL < Buffered
-      include Mixins::OpenSSL
+    class OpenSSL < TCPSocket
+      include Mixins::IOReactor::OpenSSL
+      include Mixins::IOReactor::Buffered
 
-      def initialize(io, _ = nil, id = nil, ssl_ctx = nil)
+      def initialize(ssl_ctx = nil, id = nil, io = nil)
         # OpenSSL is implicitly read/write due to key-exchange so we ignore the
         # mode parameter
-        super io, 'rw', id
+        super id, io
         initialize_ssl ssl_ctx
       end
 
@@ -50,19 +51,20 @@ module IOMultiplex
 
     # OpenSSLUpgrading wraps an IO object that acts like a regular
     # IOReactor but can be upgraded to a TLS connection mid-connection
-    class OpenSSLUpgrading < Buffered
-      include Mixins::OpenSSL
+    class OpenSSLUpgrading < TCPSocket
+      include Mixins::IOReactor::OpenSSL
 
-      def initialize(io, _ = nil, id = nil)
+      def initialize(id = nil, io = nil)
         # OpenSSL is implicitly read/write due to key-exchange so we ignore the
         # mode parameter
-        super io, 'rw', id
+        super id, io
         @ssl_enabled = false
       end
 
       def start_ssl(ssl_ctx)
         raise 'SSL already started', nil if @ssl_enabled
         initialize_ssl ssl_ctx
+        include Mixins::IOReactor::Buffered
         @ssl_enabled = true
         log_debug 'Upgrading connection to SSL'
         nil
