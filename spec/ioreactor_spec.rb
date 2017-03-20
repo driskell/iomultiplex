@@ -21,7 +21,7 @@ RSpec.describe IOMultiplex::IOReactor do
   include IOMultiplex::IOReactorHelper
 
   before :example do
-    setup
+    setup_abstract
   end
 
   # Test one of the the test helpers...

@@ -87,12 +87,17 @@ module IOMultiplex
         end
 
         # Can be overridden for other IO objects
+        # Default is a regular nonblocking write, but inheriting classes may
+        # want to pass this write through a SSL layer
         def write_nonblock(data)
           log_debug 'write_nonblock', count: data.length
           @io.write_nonblock(data)
         end
 
-        # Can be overriden for other IO objects
+        # Can be overridden for other write behaviours
+        # Default write action is to... write to IO! Inheriting classes may
+        # want to override to handle connect and accept behaviours if the IO
+        # is a TCP stream
         def write_action
           write_nonblock @write_buffer.peek(WRITE_SIZE)
         end

@@ -15,25 +15,17 @@
 # limitations under the License.
 
 require 'iomultiplex'
+require_relative './helper'
 
 RSpec.describe IOMultiplex::IOReactor::TCPSocket do
+  include IOMultiplex::IOReactorHelper
+
   before :example do
-    @logger = spy
-    @multiplexer = instance_double(IOMultiplex::Multiplexer)
-    @close_list = []
+    setup_concrete
   end
 
   after :example do
-    @close_list.reverse_each(&:close)
-  end
-
-  def make_socket(io = nil)
-    r = IOMultiplex::IOReactor::TCPSocket.new nil, io
-    r.set_logger @logger, {}
-    expect(@multiplexer).to receive(:wait_read) unless io.nil?
-    r.multiplexer = @multiplexer
-    @close_list.push r.instance_variable_get(:@io)
-    r
+    teardown_concrete
   end
 
   describe 'bind' do
@@ -139,13 +131,11 @@ RSpec.describe IOMultiplex::IOReactor::TCPSocket do
         @l.bind '127.0.0.1', port
         @l.listen
 
-        @connector = Thread.new do
-          @close_list.push TCPSocket.new('127.0.0.1', port)
-        end
+        setup_connector port
       end
 
       after :example do
-        @connector.join
+        teardown_connector
       end
 
       it 'calls connection' do
@@ -183,38 +173,11 @@ RSpec.describe IOMultiplex::IOReactor::TCPSocket do
 
   context 'with a connecting/connected socket' do
     before :example do
-      @port = discardable_port
-      l = TCPServer.new '127.0.0.1', @port
-      @semaphore = Mutex.new
-      @finished = false
-      @endpoint = nil
-      @listener = Thread.new { run_listener l }
-    end
-
-    def run_listener(l)
-      loop do
-        begin
-          io = l.accept_nonblock
-          @close_list.push io
-          @semaphore.synchronize do
-            @finished = true
-            @endpoint = io
-          end
-          break
-        rescue IO::WaitReadable
-          break if @semaphore.synchronize do
-            @finished
-          end
-          IO.select [l], nil, nil, 0.1
-        end
-      end
+      setup_listener
     end
 
     after :example do
-      @semaphore.synchronize do
-        @finished = true
-      end
-      @listener.join
+      teardown_listener
     end
 
     describe 'handle_write' do
@@ -241,17 +204,35 @@ RSpec.describe IOMultiplex::IOReactor::TCPSocket do
       end
 
       it 'performs default reactor behavior if socket is connected' do
-        io = TCPSocket.new '127.0.0.1', @port
+        io = ::TCPSocket.new '127.0.0.1', @port
         s = make_socket(io)
         s.instance_variable_get(:@write_buffer) << '1234567890'
         expect(io).to receive(:write_nonblock).and_return 10
         s.handle_write
       end
+
+      it 'falls through to a data read immediately after connection' do
+        l = make_socket
+        io = l.instance_variable_get(:@io)
+        expect(@multiplexer).to receive(:wait_write)
+        l.connect '127.0.0.1', reusable_port
+
+        # Connect on the write and fall through
+        expect(io).to receive(:connect_nonblock) do
+          raise Errno::EISCONN
+        end
+        expect(@multiplexer).to receive(:stop_write)
+        expect(io).to receive(:read_nonblock) do
+          raise IOMultiplex::WaitReadable
+        end
+        expect(@multiplexer).to receive(:wait_read)
+        l.handle_write
+      end
     end
 
     describe 'handle_read' do
       it 'performs default reactor read behaviour' do
-        io = TCPSocket.new '127.0.0.1', @port
+        io = ::TCPSocket.new '127.0.0.1', @port
         s = make_socket(io)
         expect(io).to receive(:read_nonblock).and_return '1234567890'
         expect(s).to receive(:process) do
@@ -263,7 +244,7 @@ RSpec.describe IOMultiplex::IOReactor::TCPSocket do
 
     describe 'peeraddr' do
       before :example do
-        io = TCPSocket.new '127.0.0.1', @port
+        io = ::TCPSocket.new '127.0.0.1', @port
         @r = make_socket(io)
       end
 
@@ -286,13 +267,13 @@ RSpec.describe IOMultiplex::IOReactor::TCPSocket do
 
     describe 'calculate_id' do
       before :example do
-        io = TCPSocket.new '127.0.0.1', @port
+        io = ::TCPSocket.new '127.0.0.1', @port
         @close_list.push io
         loop do
+          sleep 0.1
           break if @semaphore.synchronize do
             @finished
           end
-          sleep 0.1
         end
       end
 

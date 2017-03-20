@@ -14,19 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-require 'iomultiplex/ioreactor/buffered'
-require 'iomultiplex/mixins/openssl'
+require 'iomultiplex/mixins/ioreactor/openssl'
 
 module IOMultiplex
   class IOReactor
     # Wraps an OpenSSL IO object which receives TLS connections
     class OpenSSL < TCPSocket
       include Mixins::IOReactor::OpenSSL
-      include Mixins::IOReactor::Buffered
 
       def initialize(ssl_ctx = nil, id = nil, io = nil)
-        # OpenSSL is implicitly read/write due to key-exchange so we ignore the
-        # mode parameter
         super id, io
         initialize_ssl ssl_ctx
       end

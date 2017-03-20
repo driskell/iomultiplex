@@ -52,6 +52,8 @@ module IOMultiplex
         @write_immediately = true
       end
 
+      @read_active = false
+
       @id = id || calculate_id
       nil
     end
@@ -59,9 +61,10 @@ module IOMultiplex
     attr_reader :multiplexer
     def multiplexer=(multiplexer)
       raise 'Already attached' if @multiplexer
-
       @multiplexer = multiplexer
+
       @multiplexer.wait_read self if @r
+      @read_active = true if @r
     end
 
     def set_logger(logger, logger_context)

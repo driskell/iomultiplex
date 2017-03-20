@@ -21,7 +21,7 @@ RSpec.describe IOMultiplex::Mixins::IOReactor::Write do
   include IOMultiplex::IOReactorHelper
 
   before :example do
-    setup
+    setup_abstract
   end
 
   describe 'write and handle_write' do

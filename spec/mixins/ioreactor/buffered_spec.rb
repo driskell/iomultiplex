@@ -18,7 +18,7 @@ require 'iomultiplex'
 require 'iomultiplex/mixins/ioreactor/buffered'
 require_relative '../../ioreactor/helper'
 
-# IOReactor with the buffered mixin for testing
+# IOReactor with the Buffered mixin for testing
 class BufferedIOReactor < IOMultiplex::IOReactor
   include IOMultiplex::Mixins::IOReactor::Buffered
 end
@@ -27,7 +27,7 @@ RSpec.describe IOMultiplex::Mixins::IOReactor::Buffered do
   include IOMultiplex::IOReactorHelper
 
   before :example do
-    setup
+    setup_abstract
   end
 
   describe 'do_read and schedule_read' do
@@ -36,7 +36,7 @@ RSpec.describe IOMultiplex::Mixins::IOReactor::Buffered do
       @r = make_reactor 'r', BufferedIOReactor
     end
 
-    it 'keeps forcing a read unless it is the first read or wait was thrown' do
+    it 'keeps forcing a read until WaitReadable is thrown' do
       allow(@r).to receive(:process) do
         @r.read 5
       end

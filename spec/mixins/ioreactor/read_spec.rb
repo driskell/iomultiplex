@@ -21,7 +21,7 @@ RSpec.describe IOMultiplex::Mixins::IOReactor::Read do
   include IOMultiplex::IOReactorHelper
 
   before :example do
-    setup
+    setup_abstract
   end
 
   describe 'read' do

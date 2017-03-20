@@ -25,10 +25,21 @@ module IOMultiplex
         READ_BUFFER_MAX = 16_384
         READ_SIZE = 16_384
 
+        ALLOW_OVERFILL = true
+
+        # Handle read availability
+        # This is covered over a couple of processes:
+        # 1. do_read - Wraps around the read_action to handle WaitReadable and
+        #    other normal exceptions and can be overridden to handle other
+        #    conditions or logic
+        # 2. read_action - Actually performs the read and can be overriden for
+        #    different IO types
+        # 2. handle_data - Processes available data and decides whether or not
+        #    we need to continue listening for read availability or not
         def handle_read
           begin
             do_read
-          rescue EOFError, IOError, Errno::ECONNRESET => e
+          rescue IOError, Errno::ECONNRESET => e
             read_exception e
           end
 
@@ -36,6 +47,12 @@ module IOMultiplex
           nil
         end
 
+        # Process data and schedule read/defer
+        # If process attempted to process more data than we have in the buffer
+        # then when it reschedules read it will allow the buffer to overfill
+        # Otherwise, read will only continue if the buffer has room
+        # This allows the buffer to grow when needed whilst keeping it small
+        # whenever possible
         def handle_data
           process unless @read_buffer.empty?
           nil
@@ -44,7 +61,7 @@ module IOMultiplex
 
           # Allow overfilling of the read buffer in the event
           # read(>=READ_BUFFER_MAX) was called
-          reschedule_read true
+          reschedule_read ALLOW_OVERFILL
         else
           return send_eof if @eof_scheduled && @read_buffer.empty?
 
@@ -89,6 +106,7 @@ module IOMultiplex
 
         protected
 
+        # Perform read_action and handle any expected read exceptions
         def do_read
           read_action
         rescue IO::WaitReadable, Errno::EINTR, Errno::EAGAIN
@@ -119,14 +137,17 @@ module IOMultiplex
         # be if the client is waiting on a background thread
         # NOTE: Processor should be careful, if it processes nothing this can
         #       cause a busy loop
-        def reschedule_read(overfill = false)
+        def reschedule_read(allow_overfill = false)
           if @pause
             @multiplexer.stop_read self
             return
           end
 
-          if read_full? && !overfill
+          if read_full? && !allow_overfill
             # Stop reading, the buffer is too full, let the processor catch up
+            # by continuously calling handle_data (bypassing handle_read)
+            # and handle_data will call reschedule again so we can schedule
+            # read again when more data is available
             log_info 'Holding read due to full read buffer'
             @multiplexer.stop_read self
             @multiplexer.defer self
@@ -152,12 +173,17 @@ module IOMultiplex
         end
 
         # Can be overridden for other IO objects
+        # Default is a regular nonblocking read, but inheriting classes may want
+        # to pass this read through a SSL layer
         def read_nonblock(n)
           log_debug 'read_nonblock', count: n
           @io.read_nonblock(n)
         end
 
-        # Can be overriden for other IO objects
+        # Can be overridden for other read behaviours
+        # Default read action is to... read from IO! Inheriting classes may
+        # want to override to handle connect and accept behaviours if the IO
+        # is a TCP stream
         def read_action
           @read_buffer << read_nonblock(READ_SIZE)
           nil

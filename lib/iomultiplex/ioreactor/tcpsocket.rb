@@ -77,7 +77,7 @@ module IOMultiplex
 
         @connect_to = Socket.sockaddr_in(port, host)
         @bound = true
-        handle_connect
+        handle_write
       end
 
       def addr(reverse_lookup = true)
@@ -115,12 +115,13 @@ module IOMultiplex
 
         @connected = true
         @multiplexer.stop_write self unless @write_immediately
-        @multiplexer.wait_read self
+        @multiplexer.wait_read self unless @write_on_read
+        @read_active = true
         @write_immediately = true
 
         connected if respond_to?(:connected)
 
-        nil
+        handle_read unless @write_on_read
       end
 
       def sockaddr_in_to_addr(sockaddr_in, reverse_lookup)
